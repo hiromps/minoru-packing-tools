@@ -1,0 +1,85 @@
+name: Streamlit Community Cloud Ready
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Test app startup
+      run: |
+        python -c "
+        import sys
+        sys.path.insert(0, 'src')
+        try:
+            from src.main_cloud import main
+            print('✅ Main cloud app imports successfully')
+        except Exception as e:
+            print(f'❌ Import error: {e}')
+            sys.exit(1)
+        
+        try:
+            from src.data.products import ProductMaster
+            from src.data.boxes import BoxMaster
+            print('✅ Data modules import successfully')
+        except Exception as e:
+            print(f'❌ Data import error: {e}')
+            sys.exit(1)
+        "
+    
+    - name: Validate streamlit_app.py
+      run: |
+        python -c "
+        import streamlit as st
+        print('✅ Streamlit import successful')
+        
+        # Test entry point
+        try:
+            exec(open('streamlit_app.py').read())
+            print('✅ streamlit_app.py is valid')
+        except Exception as e:
+            print(f'❌ streamlit_app.py error: {e}')
+            sys.exit(1)
+        "
+
+  deploy-ready:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Deployment Ready
+      run: |
+        echo "🎉 Streamlit Community Cloud deployment is ready!"
+        echo ""
+        echo "📋 Deployment Information:"
+        echo "- Repository: hiromps/minoru-packing-tools"
+        echo "- Branch: main"
+        echo "- Main file: streamlit_app.py"
+        echo "- App URL: https://share.streamlit.io/"
+        echo ""
+        echo "🚀 To deploy:"
+        echo "1. Go to https://share.streamlit.io/"
+        echo "2. Click 'New app'"
+        echo "3. Select hiromps/minoru-packing-tools"
+        echo "4. Set main file to: streamlit_app.py"
+        echo "5. Click Deploy!"
+        echo ""
+        echo "✅ All tests passed - ready for deployment!"
