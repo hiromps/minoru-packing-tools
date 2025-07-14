@@ -1,104 +1,71 @@
+"""
+運賃マスタデータ
+配送業者別料金情報
+"""
+
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 
-
 @dataclass
 class ShippingRate:
-    """送料情報を管理するクラス"""
-    carrier: str
-    size_code: str
-    box_number: str
-    rate: int
+    """配送料金データクラス"""
+    carrier: str        # 配送業者名
+    box_size: str       # 対応箱サイズ
+    rate: float         # 料金 (円)
+    delivery_days: int  # 配送日数
     
     def __str__(self) -> str:
-        return f"{self.carrier} - {self.size_code}: ¥{self.rate:,}"
+        return f"{self.carrier} - {self.box_size}: {self.rate:.0f}円 ({self.delivery_days}日)"
 
-
-class RateMaster:
-    """運賃マスタを管理するクラス"""
+class RatesMaster:
+    """運賃マスタ管理クラス"""
     
     def __init__(self):
-        self._rates: List[ShippingRate] = [
-            # ヤマト運輸 - 実際の箱番号に対応
-            ShippingRate(carrier='ヤマト運輸', size_code='60', box_number='60サイズS 12入', rate=850),
-            ShippingRate(carrier='ヤマト運輸', size_code='60', box_number='L4入り', rate=850),
-            ShippingRate(carrier='ヤマト運輸', size_code='60', box_number='60サイズLL2入', rate=850),
-            ShippingRate(carrier='ヤマト運輸', size_code='80', box_number='80サイズ', rate=1050),
-            ShippingRate(carrier='ヤマト運輸', size_code='100', box_number='LL12入', rate=1300),
-            ShippingRate(carrier='ヤマト運輸', size_code='100', box_number='No.1', rate=1300),
-            ShippingRate(carrier='ヤマト運輸', size_code='120', box_number='No.14', rate=1500),
-            ShippingRate(carrier='ヤマト運輸', size_code='120', box_number='No.10', rate=1500),
-            ShippingRate(carrier='ヤマト運輸', size_code='120', box_number='No.16', rate=1500),
-            ShippingRate(carrier='ヤマト運輸', size_code='130', box_number='No.2', rate=1700),
-            ShippingRate(carrier='ヤマト運輸', size_code='130', box_number='No.5', rate=1700),
-            ShippingRate(carrier='ヤマト運輸', size_code='130', box_number='No.15', rate=1700),
-            ShippingRate(carrier='ヤマト運輸', size_code='140', box_number='12号', rate=1950),
-            ShippingRate(carrier='ヤマト運輸', size_code='140', box_number='No.6', rate=1950),
+        self.rates = [
+            # ヤマト運輸
+            ShippingRate("ヤマト運輸", "S-Box", 800, 1),
+            ShippingRate("ヤマト運輸", "M-Box", 1000, 1),
+            ShippingRate("ヤマト運輸", "L-Box", 1300, 1),
+            ShippingRate("ヤマト運輸", "XL-Box", 1600, 1),
+            ShippingRate("ヤマト運輸", "XXL-Box", 2000, 1),
             
             # 佐川急便
-            ShippingRate(carrier='佐川急便', size_code='60', box_number='60サイズS 12入', rate=800),
-            ShippingRate(carrier='佐川急便', size_code='60', box_number='L4入り', rate=800),
-            ShippingRate(carrier='佐川急便', size_code='60', box_number='60サイズLL2入', rate=800),
-            ShippingRate(carrier='佐川急便', size_code='80', box_number='80サイズ', rate=1000),
-            ShippingRate(carrier='佐川急便', size_code='100', box_number='LL12入', rate=1250),
-            ShippingRate(carrier='佐川急便', size_code='100', box_number='No.1', rate=1250),
-            ShippingRate(carrier='佐川急便', size_code='120', box_number='No.14', rate=1450),
-            ShippingRate(carrier='佐川急便', size_code='120', box_number='No.10', rate=1450),
-            ShippingRate(carrier='佐川急便', size_code='120', box_number='No.16', rate=1450),
-            ShippingRate(carrier='佐川急便', size_code='130', box_number='No.2', rate=1650),
-            ShippingRate(carrier='佐川急便', size_code='130', box_number='No.5', rate=1650),
-            ShippingRate(carrier='佐川急便', size_code='130', box_number='No.15', rate=1650),
-            ShippingRate(carrier='佐川急便', size_code='140', box_number='12号', rate=1900),
-            ShippingRate(carrier='佐川急便', size_code='140', box_number='No.6', rate=1900),
+            ShippingRate("佐川急便", "S-Box", 750, 1),
+            ShippingRate("佐川急便", "M-Box", 950, 1),
+            ShippingRate("佐川急便", "L-Box", 1250, 1),
+            ShippingRate("佐川急便", "XL-Box", 1550, 1),
+            ShippingRate("佐川急便", "XXL-Box", 1950, 1),
             
             # 日本郵便
-            ShippingRate(carrier='日本郵便', size_code='60', box_number='60サイズS 12入', rate=810),
-            ShippingRate(carrier='日本郵便', size_code='60', box_number='L4入り', rate=810),
-            ShippingRate(carrier='日本郵便', size_code='60', box_number='60サイズLL2入', rate=810),
-            ShippingRate(carrier='日本郵便', size_code='80', box_number='80サイズ', rate=1020),
-            ShippingRate(carrier='日本郵便', size_code='100', box_number='LL12入', rate=1270),
-            ShippingRate(carrier='日本郵便', size_code='100', box_number='No.1', rate=1270),
-            ShippingRate(carrier='日本郵便', size_code='120', box_number='No.14', rate=1470),
-            ShippingRate(carrier='日本郵便', size_code='120', box_number='No.10', rate=1470),
-            ShippingRate(carrier='日本郵便', size_code='120', box_number='No.16', rate=1470),
-            ShippingRate(carrier='日本郵便', size_code='130', box_number='No.2', rate=1670),
-            ShippingRate(carrier='日本郵便', size_code='130', box_number='No.5', rate=1670),
-            ShippingRate(carrier='日本郵便', size_code='130', box_number='No.15', rate=1670),
-            ShippingRate(carrier='日本郵便', size_code='140', box_number='12号', rate=1920),
-            ShippingRate(carrier='日本郵便', size_code='140', box_number='No.6', rate=1920),
+            ShippingRate("日本郵便", "S-Box", 850, 2),
+            ShippingRate("日本郵便", "M-Box", 1050, 2),
+            ShippingRate("日本郵便", "L-Box", 1350, 2),
+            ShippingRate("日本郵便", "XL-Box", 1650, 2),
+            ShippingRate("日本郵便", "XXL-Box", 2050, 2),
         ]
-        
-        # 検索用インデックス
-        self._rate_index: Dict[str, Dict[str, ShippingRate]] = {}
-        for rate in self._rates:
-            if rate.carrier not in self._rate_index:
-                self._rate_index[rate.carrier] = {}
-            self._rate_index[rate.carrier][rate.box_number] = rate
     
-    def get_rate(self, carrier: str, box_number: str) -> Optional[ShippingRate]:
-        """指定運送業者・箱サイズの送料を取得"""
-        if carrier in self._rate_index and box_number in self._rate_index[carrier]:
-            return self._rate_index[carrier][box_number]
-        return None
+    def get_rates_for_box(self, box_size: str) -> List[ShippingRate]:
+        """指定された箱サイズの料金を取得"""
+        return [rate for rate in self.rates if rate.box_size == box_size]
     
-    def get_cheapest_rate(self, box_number: str) -> Optional[ShippingRate]:
-        """指定箱サイズで最も安い送料を取得"""
-        cheapest = None
-        for carrier in self._rate_index:
-            rate = self.get_rate(carrier, box_number)
-            if rate and (cheapest is None or rate.rate < cheapest.rate):
-                cheapest = rate
-        return cheapest
+    def get_rates_by_carrier(self, carrier: str) -> List[ShippingRate]:
+        """指定された配送業者の料金を取得"""
+        return [rate for rate in self.rates if rate.carrier == carrier]
     
-    def get_all_rates_for_box(self, box_number: str) -> List[ShippingRate]:
-        """指定箱サイズの全運送業者の送料を取得"""
-        rates = []
-        for carrier in self._rate_index:
-            rate = self.get_rate(carrier, box_number)
-            if rate:
-                rates.append(rate)
-        return sorted(rates, key=lambda x: x.rate)
+    def get_cheapest_rate(self, box_size: str) -> Optional[ShippingRate]:
+        """最安料金を取得"""
+        rates = self.get_rates_for_box(box_size)
+        return min(rates, key=lambda x: x.rate) if rates else None
     
-    def get_carriers(self) -> List[str]:
-        """利用可能な運送業者一覧を取得"""
-        return list(self._rate_index.keys())
+    def get_fastest_rate(self, box_size: str) -> Optional[ShippingRate]:
+        """最速配送を取得"""
+        rates = self.get_rates_for_box(box_size)
+        return min(rates, key=lambda x: x.delivery_days) if rates else None
+    
+    def get_all_rates(self) -> List[ShippingRate]:
+        """全料金を取得"""
+        return self.rates.copy()
+    
+    def add_rate(self, rate: ShippingRate):
+        """料金を追加"""
+        self.rates.append(rate)

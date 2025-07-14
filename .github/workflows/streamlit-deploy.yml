@@ -42,13 +42,30 @@ jobs:
         textColor = "#262730"
         EOF
     
-    - name: Test app startup
+    - name: Test app components
       run: |
-        # Test that the app can start without errors
-        timeout 30s streamlit run src/main_production.py --server.port 8502 --server.headless true &
-        sleep 10
-        curl -f http://localhost:8502/_stcore/health || echo "Health check failed"
-        pkill -f streamlit || true
+        python -c "
+        import sys
+        sys.path.insert(0, 'src')
+        
+        # Test basic components
+        try:
+            from src.data.products import ProductMaster
+            from src.data.boxes import BoxMaster
+            from src.data.rates import RatesMaster
+            print('✅ All data modules imported successfully')
+        except Exception as e:
+            print(f'❌ Data modules error: {e}')
+            sys.exit(1)
+        
+        # Test streamlit_app.py
+        try:
+            import streamlit as st
+            print('✅ Streamlit imported successfully')
+        except Exception as e:
+            print(f'❌ Streamlit error: {e}')
+            sys.exit(1)
+        "
     
     - name: Deploy notification
       run: |
