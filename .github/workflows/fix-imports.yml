@@ -1,54 +1,122 @@
-# .github/workflows/streamlit-fix.yml
-
-name: 🚀 One-Click Streamlit Fix
+name: Fix Streamlit Import Issues
 
 on:
 workflow_dispatch:
-inputs:
-fix_type:
-description: ‘修正タイプ’
-required: true
-default: ‘all’
-type: choice
-options:
-- all
-- imports-only
-- requirements-only
+push:
+branches: [ main, master ]
+
+permissions:
+contents: write
+pull-requests: write
 
 jobs:
-streamlit-fix:
+fix-imports:
 runs-on: ubuntu-latest
-steps:
-- uses: actions/checkout@v4
 
 ```
-- name: 🔧 Apply All Fixes
-  if: ${{ github.event.inputs.fix_type == 'all' || github.event.inputs.fix_type == 'imports-only' }}
-  run: |
-    # __init__.py files
-    find . -name "*.py" -path "./src/*" -exec dirname {} \; | sort -u | xargs -I {} touch {}/__init__.py
-    
-    # Fix imports in all Python files
-    find . -name "*.py" -path "./src/*" -exec sed -i '1i import sys, os; sys.path.append(os.path.dirname(os.path.abspath(__file__)))' {} \;
+steps:
+- name: Checkout repository
+  uses: actions/checkout@v4
+  with:
+    fetch-depth: 0
+    token: ${{ secrets.GITHUB_TOKEN }}
 
-- name: 📦 Update Requirements
-  if: ${{ github.event.inputs.fix_type == 'all' || github.event.inputs.fix_type == 'requirements-only' }}
+- name: Setup Python
+  uses: actions/setup-python@v4
+  with:
+    python-version: '3.11'
+
+- name: Create init files
   run: |
+    echo "Creating __init__.py files..."
+    
+    # src配下に__init__.pyを作成
+    mkdir -p src/ui src/core src/data
+    touch src/__init__.py
+    touch src/ui/__init__.py
+    touch src/core/__init__.py
+    touch src/data/__init__.py
+    
+    echo "✅ Created __init__.py files"
+
+- name: Fix main production file
+  run: |
+    echo "Fixing main_production.py..."
+    
+    # main_production.pyが存在する場合のみ修正
+    if [ -f "src/main_production.py" ]; then
+      # バックアップ作成
+      cp src/main_production.py src/main_production.py.bak
+      
+      # 新しいファイル作成
+      cat > src/main_production.py << 'EOF'
+    # パス設定
+    import sys
+    import os
+    from pathlib import Path
+    
+    # プロジェクトルートをパスに追加
+    current_dir = Path(__file__).parent.parent
+    sys.path.insert(0, str(current_dir))
+    
+    EOF
+      
+      # 元のコンテンツを追加（import行以外）
+      grep -v "^from src\." src/main_production.py.bak >> src/main_production.py || true
+      
+      echo "✅ Fixed main_production.py"
+    else
+      echo "⚠️ main_production.py not found"
+    fi
+
+- name: Update requirements
+  run: |
+    echo "Updating requirements.txt..."
+    
     cat > requirements.txt << 'EOF'
     streamlit>=1.30.0
     numpy>=1.25.0
+    pandas>=2.0.0
+    plotly>=5.15.0
+    matplotlib>=3.7.0
     ortools>=9.8.0
     setuptools>=68.0.0
     packaging>=21.0
     EOF
     
-    echo "python-3.11" > runtime.txt
+    echo "✅ Updated requirements.txt"
 
-- name: 💾 Auto Commit
+- name: Create runtime file
   run: |
-    git config user.name "Streamlit Auto-Fix"
-    git config user.email "autofix@github.com"
-    git add -A
-    git diff --staged --quiet || git commit -m "🔧 Auto-fix Streamlit deployment issues"
-    git push
+    echo "python-3.11" > runtime.txt
+    echo "✅ Created runtime.txt"
+
+- name: Create streamlit config
+  run: |
+    mkdir -p .streamlit
+    cat > .streamlit/config.toml << 'EOF'
+    [server]
+    headless = true
+    port = 8501
+    
+    [theme]
+    base = "light"
+    EOF
+    echo "✅ Created Streamlit config"
+
+- name: Commit changes
+  run: |
+    git config --local user.email "action@github.com"
+    git config --local user.name "GitHub Action Bot"
+    
+    git add .
+    
+    # 変更があるかチェック
+    if git diff --staged --quiet; then
+      echo "No changes to commit"
+    else
+      git commit -m "🔧 Fix Python imports and update dependencies for Streamlit"
+      git push origin ${{ github.ref_name }}
+      echo "✅ Changes committed and pushed"
+    fi
 ```
