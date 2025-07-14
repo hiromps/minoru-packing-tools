@@ -1,3 +1,9 @@
+# パス設定 - main_production.pyの最初に追加
+from pathlib import Path
+
+# プロジェクトルートをパスに追加
+current_dir = Path(__file__).parent.parent
+sys.path.insert(0, str(current_dir))
 import streamlit as st
 import sys
 import os
