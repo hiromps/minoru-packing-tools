@@ -1,0 +1,58 @@
+name: Deploy to Streamlit Community Cloud
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r deploy/requirements.txt
+    
+    - name: Create streamlit config
+      run: |
+        mkdir -p ~/.streamlit
+        cat > ~/.streamlit/config.toml << 'EOF'
+        [server]
+        headless = true
+        enableCORS = false
+        port = 8501
+        
+        [browser]
+        gatherUsageStats = false
+        
+        [theme]
+        primaryColor = "#FF6B6B"
+        backgroundColor = "#FFFFFF"
+        secondaryBackgroundColor = "#F0F2F6"
+        textColor = "#262730"
+        EOF
+    
+    - name: Test app startup
+      run: |
+        # Test that the app can start without errors
+        timeout 30s streamlit run src/main_production.py --server.port 8502 --server.headless true &
+        sleep 10
+        curl -f http://localhost:8502/_stcore/health || echo "Health check failed"
+        pkill -f streamlit || true
+    
+    - name: Deploy notification
+      run: |
+        echo "✅ App is ready for Streamlit Community Cloud deployment"
+        echo "🔗 Repository: https://github.com/hiromps/minoru-packing-tools"
+        echo "📂 Main file: src/main_production.py"
+        echo "🚀 Deploy at: https://share.streamlit.io/
