@@ -70,4 +70,3 @@ class ProductMaster:
             if product:
                 total += product.weight * qty
         return total
-EOF < /dev/null

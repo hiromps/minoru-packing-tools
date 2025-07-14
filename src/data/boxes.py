@@ -87,4 +87,3 @@ class BoxMaster:
     def add_box(self, box: TransportBox):
         """箱を追加"""
         self.boxes[box.number] = box
-EOF < /dev/null
