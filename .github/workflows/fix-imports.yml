@@ -1,40 +1,54 @@
-name: Quick Fix
+# .github/workflows/streamlit-fix.yml
+
+name: 🚀 One-Click Streamlit Fix
 
 on:
 workflow_dispatch:
-
-permissions:
-contents: write
+inputs:
+fix_type:
+description: ‘修正タイプ’
+required: true
+default: ‘all’
+type: choice
+options:
+- all
+- imports-only
+- requirements-only
 
 jobs:
-fix:
+streamlit-fix:
 runs-on: ubuntu-latest
 steps:
 - uses: actions/checkout@v4
 
 ```
-- name: Create files
+- name: 🔧 Apply All Fixes
+  if: ${{ github.event.inputs.fix_type == 'all' || github.event.inputs.fix_type == 'imports-only' }}
   run: |
     # __init__.py files
-    touch src/__init__.py
-    touch src/ui/__init__.py  
-    touch src/core/__init__.py
-    touch src/data/__init__.py
+    find . -name "*.py" -path "./src/*" -exec dirname {} \; | sort -u | xargs -I {} touch {}/__init__.py
     
-    # requirements.txt
-    echo "streamlit>=1.30.0" > requirements.txt
-    echo "numpy>=1.25.0" >> requirements.txt
-    echo "ortools>=9.8.0" >> requirements.txt
-    echo "setuptools>=68.0.0" >> requirements.txt
+    # Fix imports in all Python files
+    find . -name "*.py" -path "./src/*" -exec sed -i '1i import sys, os; sys.path.append(os.path.dirname(os.path.abspath(__file__)))' {} \;
+
+- name: 📦 Update Requirements
+  if: ${{ github.event.inputs.fix_type == 'all' || github.event.inputs.fix_type == 'requirements-only' }}
+  run: |
+    cat > requirements.txt << 'EOF'
+    streamlit>=1.30.0
+    numpy>=1.25.0
+    ortools>=9.8.0
+    setuptools>=68.0.0
+    packaging>=21.0
+    EOF
     
-    # runtime.txt
     echo "python-3.11" > runtime.txt
 
-- name: Commit
+- name: 💾 Auto Commit
   run: |
-    git config user.name "Bot"
-    git config user.email "bot@github.com"
-    git add .
-    git commit -m "Fix files" || exit 0
+    git config user.name "Streamlit Auto-Fix"
+    git config user.email "autofix@github.com"
+    git add -A
+    git diff --staged --quiet || git commit -m "🔧 Auto-fix Streamlit deployment issues"
     git push
 ```
