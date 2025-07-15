@@ -23,25 +23,25 @@ class RatesMaster:
     def __init__(self):
         self.rates = [
             # ヤマト運輸
-            ShippingRate("ヤマト運輸", "S-Box", 800, 1),
-            ShippingRate("ヤマト運輸", "M-Box", 1000, 1),
-            ShippingRate("ヤマト運輸", "L-Box", 1300, 1),
-            ShippingRate("ヤマト運輸", "XL-Box", 1600, 1),
-            ShippingRate("ヤマト運輸", "XXL-Box", 2000, 1),
+            ShippingRate("ヤマト運輸", "No.1", 800, 1),
+            ShippingRate("ヤマト運輸", "No.2", 1000, 1),
+            ShippingRate("ヤマト運輸", "No.5", 1300, 1),
+            ShippingRate("ヤマト運輸", "No.6（100箱）", 1600, 1),
+            ShippingRate("ヤマト運輸", "No.15", 2000, 1),
             
             # 佐川急便
-            ShippingRate("佐川急便", "S-Box", 750, 1),
-            ShippingRate("佐川急便", "M-Box", 950, 1),
-            ShippingRate("佐川急便", "L-Box", 1250, 1),
-            ShippingRate("佐川急便", "XL-Box", 1550, 1),
-            ShippingRate("佐川急便", "XXL-Box", 1950, 1),
+            ShippingRate("佐川急便", "No.1", 750, 1),
+            ShippingRate("佐川急便", "No.2", 950, 1),
+            ShippingRate("佐川急便", "No.5", 1250, 1),
+            ShippingRate("佐川急便", "No.6（100箱）", 1550, 1),
+            ShippingRate("佐川急便", "No.15", 1950, 1),
             
             # 日本郵便
-            ShippingRate("日本郵便", "S-Box", 850, 2),
-            ShippingRate("日本郵便", "M-Box", 1050, 2),
-            ShippingRate("日本郵便", "L-Box", 1350, 2),
-            ShippingRate("日本郵便", "XL-Box", 1650, 2),
-            ShippingRate("日本郵便", "XXL-Box", 2050, 2),
+            ShippingRate("日本郵便", "No.1", 850, 2),
+            ShippingRate("日本郵便", "No.2", 1050, 2),
+            ShippingRate("日本郵便", "No.5", 1350, 2),
+            ShippingRate("日本郵便", "No.6（100箱）", 1650, 2),
+            ShippingRate("日本郵便", "No.15", 2050, 2),
         ]
     
     def get_rates_for_box(self, box_size: str) -> List[ShippingRate]:

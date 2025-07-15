@@ -18,25 +18,32 @@ sys.path.insert(0, src_path)
 os.environ['ENVIRONMENT'] = 'production'
 os.environ['STREAMLIT_CLOUD'] = 'true'
 
-# Import and run the cloud-optimized application
+# Import and run the production application
 try:
-    from src.main_cloud import main
+    from src.main_production import main
     
     # Run the application
     if __name__ == "__main__":
         main()
         
 except ImportError as e:
-    st.error(f"❌ インポートエラー: {str(e)}")
-    st.info("🔧 システムの初期化中です。しばらくお待ちください...")
+    st.error(f"❌ Production版の読み込みに失敗しました: {str(e)}")
+    st.info("🔧 Cloud版にフォールバック中...")
     
-    # Fallback: Show basic info
-    st.markdown("### 📦 ミノルキューブ最適配送システム v3.0.0")
-    st.markdown("**システムの準備中です。しばらくお待ちください。**")
-    
-    # Debug traceback
-    st.markdown("### 🔧 詳細エラー情報")
-    st.code(traceback.format_exc())
+    # Fallback to cloud version
+    try:
+        from src.main_cloud import main as cloud_main
+        cloud_main()
+    except ImportError as fallback_error:
+        st.error(f"❌ フォールバックも失敗しました: {str(fallback_error)}")
+        
+        # Final fallback: Show basic info
+        st.markdown("### 📦 ミノルキューブ最適配送システム v3.0.0")
+        st.markdown("**システムの準備中です。しばらくお待ちください。**")
+        
+        # Debug traceback
+        st.markdown("### 🔧 詳細エラー情報")
+        st.code(traceback.format_exc())
     
 except Exception as e:
     st.error(f"❌ システムエラー: {str(e)}")

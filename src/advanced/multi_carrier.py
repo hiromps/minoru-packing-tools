@@ -190,7 +190,7 @@ class MultiCarrierManager:
         
         # 宅急便コンパクトは小型のみ
         if service.service_name == '宅急便コンパクト':
-            return result.box.number in ['B-60', 'B-80']
+            return result.box.number in ['No.1', 'No.2']
         
         return True
     

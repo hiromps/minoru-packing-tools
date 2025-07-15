@@ -93,14 +93,9 @@ class SimplePacking:
         # 内寸取得
         inner_dims = box.inner_dimensions
         box_w, box_d, box_h = inner_dims
-        usable_volume = box_w * box_d * box_h
         
-        # 体積チェック
-        if total_volume > usable_volume:
-            return None
-        
-        # 3D配置シミュレーション
-        packed_positions = self._advanced_3d_packing(items, box_w, box_d, box_h)
+        # 実際の3D配置シミュレーション（離散的パッキング）
+        packed_positions = self._discrete_3d_packing(items, box_w, box_d, box_h)
         
         if not packed_positions:
             return None
@@ -109,6 +104,7 @@ class SimplePacking:
         actual_volume = sum(item.width * item.depth * item.height for item in packed_positions)
         
         # 利用率計算（内寸基準）
+        usable_volume = box_w * box_d * box_h
         utilization = (actual_volume / usable_volume) * 100
         
         # パッキング効率計算（空間の無駄を最小化）
@@ -126,187 +122,120 @@ class SimplePacking:
             is_feasible=True
         )
     
-    def _advanced_3d_packing(self, items: List[Dict], box_w: float, box_d: float, box_h: float) -> List[PackedItem]:
-        """高度な3Dパッキングアルゴリズム（Bottom-Left-Fill戦略）"""
+    def _discrete_3d_packing(self, items: List[Dict], box_w: float, box_d: float, box_h: float) -> List[PackedItem]:
+        """離散的3Dパッキング（実際の配置数を計算）"""
         packed_items = []
         
-        # アイテムを体積の大きい順にソート
-        sorted_items = sorted(items, key=lambda x: x['product'].volume, reverse=True)
+        # 商品タイプ別にグループ化
+        product_groups = {}
+        for item in items:
+            size = item['size']
+            if size not in product_groups:
+                product_groups[size] = {'product': item['product'], 'count': 0}
+            product_groups[size]['count'] += 1
         
-        # 3D空間を管理するための座標リスト
-        free_positions = [(0, 0, 0)]  # (x, y, z)
+        # 各商品タイプに対して最適配置を計算
+        current_z = 0
         
-        for item_data in sorted_items:
-            product = item_data['product']
+        for size, group_data in product_groups.items():
+            product = group_data['product']
+            count = group_data['count']
             
-            # 複数の向きを試す（回転考慮）
+            # 最適な向きを決定（複数パターンをテスト）
             orientations = [
-                (product.width, product.depth, product.height, False),  # 元の向き
-                (product.depth, product.width, product.height, True),   # 90度回転
+                (product.width, product.depth, product.height),
+                (product.depth, product.width, product.height),
+                (product.width, product.height, product.depth),
+                (product.depth, product.height, product.width),
+                (product.height, product.width, product.depth),
+                (product.height, product.depth, product.width)
             ]
             
-            placed = False
-            for width, depth, height, rotated in orientations:
-                if placed:
-                    break
-                    
-                # 各可能位置で配置を試す
-                for pos_idx, (x, y, z) in enumerate(free_positions):
-                    # 箱の境界チェック
-                    if (x + width <= box_w and 
-                        y + depth <= box_d and 
-                        z + height <= box_h):
-                        
-                        # 他のアイテムとの干渉チェック
-                        if not self._check_collision(packed_items, x, y, z, width, depth, height):
-                            # 重量安定性チェック
-                            if self._check_stability(packed_items, x, y, z, width, depth, height, product.weight):
-                                # 配置可能
-                                packed_item = PackedItem(
-                                    product=product,
-                                    x=x, y=y, z=z,
-                                    width=width, depth=depth, height=height,
-                                    rotated=rotated
-                                )
-                                packed_items.append(packed_item)
-                                
-                                # 使用した位置を削除
-                                free_positions.pop(pos_idx)
-                                
-                                # 新しい配置可能位置を追加
-                                self._add_new_positions(free_positions, x, y, z, width, depth, height)
-                                
-                                placed = True
-                                break
+            best_layout = None
+            max_fit = 0
             
-            # 配置できなかった場合は失敗
-            if not placed:
-                return []
+            for w, d, h in orientations:
+                # この向きで何個配置できるかを計算
+                fit_count = self._calculate_discrete_fit(count, w, d, h, box_w, box_d, box_h - current_z)
+                if fit_count > max_fit:
+                    max_fit = fit_count
+                    best_layout = (w, d, h, fit_count)
+            
+            if best_layout and max_fit > 0:
+                w, d, h, fit_count = best_layout
+                
+                # 実際に配置できる数が要求数より少ない場合は失敗とする
+                if fit_count < count:
+                    return []  # 全部入らない場合は失敗
+                
+                # 実際の配置を生成
+                placed_items = self._generate_discrete_positions(
+                    product, fit_count, w, d, h, box_w, box_d, current_z
+                )
+                packed_items.extend(placed_items)
+                
+                # 使用した高さ分を更新
+                if placed_items:
+                    used_height = max(item.z + item.height for item in placed_items) - current_z
+                    current_z += used_height
         
         return packed_items
     
-    def _check_collision(self, packed_items: List[PackedItem], x: float, y: float, z: float, 
-                        width: float, depth: float, height: float) -> bool:
-        """新しいアイテムが既存アイテムと干渉するかチェック"""
-        for item in packed_items:
-            # 3D空間での重複チェック
-            if not (x >= item.x + item.width or x + width <= item.x or
-                   y >= item.y + item.depth or y + depth <= item.y or
-                   z >= item.z + item.height or z + height <= item.z):
-                return True  # 衝突あり
-        return False  # 衝突なし
+    def _calculate_discrete_fit(self, desired_count: int, item_w: float, item_d: float, item_h: float, 
+                               box_w: float, box_d: float, available_h: float) -> int:
+        """離散的配置で何個入るかを計算"""
+        # 各軸に何個入るかを計算
+        x_count = int(box_w // item_w)
+        y_count = int(box_d // item_d)
+        z_count = int(available_h // item_h)
+        
+        # 1層あたりの配置数
+        per_layer = x_count * y_count
+        
+        # 総配置可能数
+        total_possible = per_layer * z_count
+        
+        # 実際に配置する数（要求数との小さい方）
+        return min(desired_count, total_possible)
     
-    def _add_new_positions(self, positions: List[Tuple[float, float, float]], 
-                          x: float, y: float, z: float, width: float, depth: float, height: float):
-        """新しいアイテム配置後の候補位置を追加"""
-        # 新しい配置可能位置を計算
-        new_positions = [
-            (x + width, y, z),      # 右側
-            (x, y + depth, z),      # 奥側
-            (x, y, z + height),     # 上側
-        ]
+    def _generate_discrete_positions(self, product, count: int, item_w: float, item_d: float, item_h: float,
+                                    box_w: float, box_d: float, start_z: float) -> List[PackedItem]:
+        """離散的配置の座標を生成"""
+        positions = []
         
-        for pos in new_positions:
-            if pos not in positions:
-                positions.append(pos)
+        # 各軸の配置数を計算
+        x_count = int(box_w // item_w)
+        y_count = int(box_d // item_d)
         
-        # 位置をソート（左下奥優先）
-        positions.sort(key=lambda p: (p[2], p[1], p[0]))
-    
-    def _check_stability(self, packed_items: List[PackedItem], x: float, y: float, z: float,
-                        width: float, depth: float, height: float, weight: float) -> bool:
-        """重量安定性をチェック"""
-        # 底面（z=0）の場合は常に安定
-        if z == 0:
-            return True
+        placed = 0
+        z = start_z
         
-        # 支持面積の計算
-        support_area = 0.0
-        required_area = width * depth
-        
-        # 下にある全てのアイテムをチェック
-        for item in packed_items:
-            # アイテムの上面がこのアイテムの底面と接触しているかチェック
-            if abs(item.z + item.height - z) < 0.01:  # 浮動小数点の誤差を考慮
-                # 重複する面積を計算
-                overlap_x = max(0, min(x + width, item.x + item.width) - max(x, item.x))
-                overlap_y = max(0, min(y + depth, item.y + item.depth) - max(y, item.y))
-                overlap_area = overlap_x * overlap_y
-                support_area += overlap_area
-        
-        # 重量制限チェック（下のアイテムが支えられるか）
-        if not self._check_weight_distribution(packed_items, x, y, z, width, depth, weight):
-            return False
-        
-        # 少なくとも50%の支持面積が必要
-        stability_threshold = 0.5
-        return (support_area / required_area) >= stability_threshold
-    
-    def _check_weight_distribution(self, packed_items: List[PackedItem], x: float, y: float, z: float,
-                                  width: float, depth: float, new_weight: float) -> bool:
-        """重量分散をチェック"""
-        max_weight_per_item = 50.0  # kg（仮の制限値）
-        
-        # 新しいアイテムが乗る下のアイテムをチェック
-        for item in packed_items:
-            if abs(item.z + item.height - z) < 0.01:  # 直下のアイテム
-                # 重複する面積を計算
-                overlap_x = max(0, min(x + width, item.x + item.width) - max(x, item.x))
-                overlap_y = max(0, min(y + depth, item.y + item.depth) - max(y, item.y))
-                
-                if overlap_x > 0 and overlap_y > 0:
-                    # 重量が分散される割合を計算
-                    overlap_ratio = (overlap_x * overlap_y) / (width * depth)
-                    distributed_weight = new_weight * overlap_ratio
+        while placed < count:
+            for y_idx in range(y_count):
+                if placed >= count:
+                    break
+                for x_idx in range(x_count):
+                    if placed >= count:
+                        break
                     
-                    # そのアイテムにかかる総重量を計算
-                    total_weight_on_item = self._calculate_weight_on_item(packed_items, item)
-                    total_weight_on_item += distributed_weight
+                    x = x_idx * item_w
+                    y = y_idx * item_d
                     
-                    # 重量制限チェック
-                    if total_weight_on_item > max_weight_per_item:
-                        return False
+                    # 回転判定
+                    rotated = (item_w != product.width or item_d != product.depth)
+                    
+                    positions.append(PackedItem(
+                        product=product,
+                        x=x, y=y, z=z,
+                        width=item_w, depth=item_d, height=item_h,
+                        rotated=rotated
+                    ))
+                    placed += 1
+            
+            # 次の層へ
+            z += item_h
         
-        return True
-    
-    def _calculate_weight_on_item(self, packed_items: List[PackedItem], target_item: PackedItem) -> float:
-        """特定のアイテムにかかっている総重量を計算"""
-        total_weight = target_item.product.weight
-        
-        # その上にあるアイテムの重量を加算
-        for item in packed_items:
-            if item.z > target_item.z + target_item.height - 0.01:
-                # 重複チェック
-                overlap_x = max(0, min(target_item.x + target_item.width, item.x + item.width) - 
-                              max(target_item.x, item.x))
-                overlap_y = max(0, min(target_item.y + target_item.depth, item.y + item.depth) - 
-                              max(target_item.y, item.y))
-                
-                if overlap_x > 0 and overlap_y > 0:
-                    # 重量の一部がこのアイテムにかかる
-                    overlap_ratio = (overlap_x * overlap_y) / (item.width * item.depth)
-                    total_weight += item.product.weight * overlap_ratio
-        
-        return total_weight
-    
-    def _can_fit_in_layer(self, products: List[Product], layer_w: float, layer_d: float) -> bool:
-        """1つの層内に商品が配置可能かチェック（旧互換性のため保持）"""
-        # 簡易的な2D配置チェック
-        total_area = sum(p.width * p.depth for p in products)
-        available_area = layer_w * layer_d
-        
-        # 面積チェック（効率係数0.9を適用）
-        if total_area > available_area * 0.9:
-            return False
-        
-        # 最大寸法チェック
-        max_width = max(p.width for p in products)
-        max_depth = max(p.depth for p in products)
-        
-        if max_width > layer_w or max_depth > layer_d:
-            return False
-        
-        return True
+        return positions
     
     def get_packing_recommendation(self, results: List[PackingResult]) -> Optional[PackingResult]:
         """最適な箱を推奨"""

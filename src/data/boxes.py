@@ -48,11 +48,11 @@ class BoxMaster:
     
     def __init__(self):
         self.boxes = {
-            'S-Box': TransportBox('S-Box', 25, 20, 15, 5.0),
-            'M-Box': TransportBox('M-Box', 35, 25, 20, 10.0),
-            'L-Box': TransportBox('L-Box', 45, 35, 25, 15.0),
-            'XL-Box': TransportBox('XL-Box', 55, 45, 30, 20.0),
-            'XXL-Box': TransportBox('XXL-Box', 65, 55, 35, 25.0)
+            'No.1': TransportBox('No.1', 37.5, 37.0, 24.0, 10.0),  # 100サイズ相当
+            'No.2': TransportBox('No.2', 50.2, 40.2, 31.0, 15.0),  # 120サイズ相当
+            'No.5': TransportBox('No.5', 53.2, 40.2, 33.8, 20.0),  # 130サイズ相当
+            'No.6（100箱）': TransportBox('No.6（100箱）', 50.2, 40.2, 50.8, 25.0),  # 140サイズ相当
+            'No.15': TransportBox('No.15', 57.5, 40.2, 34.0, 25.0)  # 140サイズ相当
         }
     
     def get_box(self, number: str) -> Optional[TransportBox]:

@@ -1,14 +1,14 @@
 # パス設定 - main_production.pyの最初に追加
-from pathlib import Path
-
-# プロジェクトルートをパスに追加
-current_dir = Path(__file__).parent.parent
-sys.path.insert(0, str(current_dir))
 import streamlit as st
 import sys
 import os
 import time
+from pathlib import Path
 from typing import Dict, Any
+
+# プロジェクトルートをパスに追加
+current_dir = Path(__file__).parent.parent
+sys.path.insert(0, str(current_dir))
 
 # プロジェクトルートをPythonパスに追加
 # Define current_dir for compatibility (in case of deployment issues)
@@ -362,29 +362,119 @@ class ProductionApp:
         # サイドバー表示
         self.render_sidebar()
         
-        # メイン入力エリア
-        st.header("📥 商品情報入力")
+        # メインコンテンツをタブで分割
+        tab1, tab2 = st.tabs(["🚀 最適化計算", "📦 箱ラインナップ"])
         
-        # 入力方法選択
-        input_method = st.radio(
-            "入力方法を選択してください:",
-            ["⌨️ 手動入力", "📷 AI画像認識入力"],
-            horizontal=True
-        )
+        with tab1:
+            # メイン入力エリア
+            st.header("📥 商品情報入力")
+            
+            # 入力方法選択
+            input_method = st.radio(
+                "入力方法を選択してください:",
+                ["⌨️ 手動入力", "📷 AI画像認識入力"],
+                horizontal=True
+            )
+            
+            quantities = None
+            
+            if input_method == "⌨️ 手動入力":
+                quantities = self.input_handler.render_manual_input()
+            else:
+                quantities = self.image_handler.render_image_input()
+            
+            # 計算実行
+            if quantities:
+                self.handle_calculation(quantities)
         
-        quantities = None
-        
-        if input_method == "⌨️ 手動入力":
-            quantities = self.input_handler.render_manual_input()
-        else:
-            quantities = self.image_handler.render_image_input()
-        
-        # 計算実行
-        if quantities:
-            self.handle_calculation(quantities)
+        with tab2:
+            self.render_detailed_box_lineup()
         
         # フッター
         self.render_footer()
+    
+    def render_detailed_box_lineup(self):
+        """詳細な箱ラインナップページ"""
+        st.header("📦 ダンボール箱ラインナップ")
+        st.markdown("利用可能なダンボール箱の詳細仕様をご確認いただけます。")
+        
+        from src.data.boxes import BoxMaster
+        from src.data.products import ProductMaster
+        
+        box_master = BoxMaster()
+        product_master = ProductMaster()
+        boxes = box_master.get_all_boxes()
+        
+        # 概要テーブル
+        st.subheader("📋 箱サイズ一覧表")
+        
+        table_data = []
+        for box_name, box in boxes.items():
+            inner_dims = box.inner_dimensions
+            table_data.append({
+                "箱番号": box_name,
+                "外寸 (W×D×H)": f"{box.width}×{box.depth}×{box.height} cm",
+                "内寸 (W×D×H)": f"{inner_dims[0]:.0f}×{inner_dims[1]:.0f}×{inner_dims[2]:.0f} cm",
+                "体積": f"{box.volume:,.0f} cm³",
+                "最大重量": f"{box.max_weight} kg"
+            })
+        
+        import pandas as pd
+        df = pd.DataFrame(table_data)
+        st.dataframe(df, use_container_width=True)
+        
+        # 詳細情報
+        st.subheader("📐 詳細仕様")
+        
+        cols = st.columns(len(boxes))
+        
+        for i, (box_name, box) in enumerate(boxes.items()):
+            with cols[i]:
+                st.markdown(f"### {box_name}")
+                
+                # 基本情報カード
+                st.markdown(f"""
+                <div style="background-color: #f0f2f6; padding: 15px; border-radius: 10px; margin-bottom: 10px;">
+                    <h4>📏 寸法</h4>
+                    <p><strong>外寸:</strong> {box.width} × {box.depth} × {box.height} cm</p>
+                    <p><strong>内寸:</strong> {box.inner_dimensions[0]:.0f} × {box.inner_dimensions[1]:.0f} × {box.inner_dimensions[2]:.0f} cm</p>
+                    <p><strong>体積:</strong> {box.volume:,.0f} cm³</p>
+                    <p><strong>最大重量:</strong> {box.max_weight} kg</p>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # 容量目安
+                st.markdown("**📦 容量目安**")
+                for product_name in ['S', 'Sロング', 'L', 'Lロング', 'LL']:
+                    product = product_master.get_product(product_name)
+                    if product:
+                        # 最適配置での個数計算
+                        max_fit = self._calculate_max_fit_production(box, product)
+                        st.markdown(f"- {product_name}サイズ: {max_fit}個")
+    
+    def _calculate_max_fit_production(self, box, product):
+        """箱に入る最大個数を計算（Production版）"""
+        inner_dims = box.inner_dimensions
+        
+        # 6つの向きをテスト
+        orientations = [
+            (product.width, product.depth, product.height),
+            (product.depth, product.width, product.height),
+            (product.width, product.height, product.depth),
+            (product.depth, product.height, product.width),
+            (product.height, product.width, product.depth),
+            (product.height, product.depth, product.width)
+        ]
+        
+        max_count = 0
+        for w, d, h in orientations:
+            x_count = int(inner_dims[0] // w)
+            y_count = int(inner_dims[1] // d)
+            z_count = int(inner_dims[2] // h)
+            count = x_count * y_count * z_count
+            max_count = max(max_count, count)
+        
+        return max_count
     
     def render_footer(self):
         """フッター表示"""

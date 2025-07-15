@@ -112,6 +112,9 @@ class CloudApp:
             - ✅ 3D可視化表示
             """)
             
+            st.markdown("### 📦 利用可能な箱サイズ")
+            self.render_box_lineup()
+            
             st.markdown("### 💡 使い方")
             st.markdown("""
             1. 商品数量を入力
@@ -119,6 +122,120 @@ class CloudApp:
             3. 最適な箱と配置を確認
             4. 梱包手順に従って作業
             """)
+    
+    def render_box_lineup(self):
+        """箱のラインナップ情報を表示"""
+        boxes = self.box_master.get_all_boxes()
+        
+        for box_name, box in boxes.items():
+            with st.expander(f"📦 {box_name}", expanded=False):
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.markdown(f"""
+                    **外寸**  
+                    {box.width} × {box.depth} × {box.height} cm
+                    
+                    **内寸**  
+                    {box.inner_dimensions[0]:.0f} × {box.inner_dimensions[1]:.0f} × {box.inner_dimensions[2]:.0f} cm
+                    """)
+                
+                with col2:
+                    st.markdown(f"""
+                    **体積**  
+                    {box.volume:,.0f} cm³
+                    
+                    **最大重量**  
+                    {box.max_weight} kg
+                    """)
+                
+                # 容量の目安を表示
+                st.markdown("**容量の目安:**")
+                s_product = self.product_master.get_product('S')
+                if s_product:
+                    # Sサイズが何個入るかの概算
+                    s_per_layer = int(box.inner_dimensions[0] // s_product.width) * int(box.inner_dimensions[1] // s_product.depth)
+                    s_layers = int(box.inner_dimensions[2] // s_product.height)
+                    s_total = s_per_layer * s_layers
+                    st.markdown(f"- Sサイズ: 約{s_total}個まで")
+    
+    def render_detailed_box_lineup(self):
+        """詳細な箱ラインナップページ"""
+        st.header("📦 ダンボール箱ラインナップ")
+        st.markdown("利用可能なダンボール箱の詳細仕様をご確認いただけます。")
+        
+        boxes = self.box_master.get_all_boxes()
+        
+        # 概要テーブル
+        st.subheader("📋 箱サイズ一覧表")
+        
+        table_data = []
+        for box_name, box in boxes.items():
+            inner_dims = box.inner_dimensions
+            table_data.append({
+                "箱番号": box_name,
+                "外寸 (W×D×H)": f"{box.width}×{box.depth}×{box.height} cm",
+                "内寸 (W×D×H)": f"{inner_dims[0]:.0f}×{inner_dims[1]:.0f}×{inner_dims[2]:.0f} cm",
+                "体積": f"{box.volume:,.0f} cm³",
+                "最大重量": f"{box.max_weight} kg"
+            })
+        
+        import pandas as pd
+        df = pd.DataFrame(table_data)
+        st.dataframe(df, use_container_width=True)
+        
+        # 詳細情報
+        st.subheader("📐 詳細仕様")
+        
+        cols = st.columns(len(boxes))
+        
+        for i, (box_name, box) in enumerate(boxes.items()):
+            with cols[i]:
+                st.markdown(f"### {box_name}")
+                
+                # 基本情報カード
+                st.markdown(f"""
+                <div style="background-color: #f0f2f6; padding: 15px; border-radius: 10px; margin-bottom: 10px;">
+                    <h4>📏 寸法</h4>
+                    <p><strong>外寸:</strong> {box.width} × {box.depth} × {box.height} cm</p>
+                    <p><strong>内寸:</strong> {box.inner_dimensions[0]:.0f} × {box.inner_dimensions[1]:.0f} × {box.inner_dimensions[2]:.0f} cm</p>
+                    <p><strong>体積:</strong> {box.volume:,.0f} cm³</p>
+                    <p><strong>最大重量:</strong> {box.max_weight} kg</p>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # 容量目安
+                st.markdown("**📦 容量目安**")
+                for product_name in ['S', 'Sロング', 'L', 'Lロング', 'LL']:
+                    product = self.product_master.get_product(product_name)
+                    if product:
+                        # 最適配置での個数計算
+                        max_fit = self._calculate_max_fit(box, product)
+                        st.markdown(f"- {product_name}サイズ: {max_fit}個")
+                
+    def _calculate_max_fit(self, box, product):
+        """箱に入る最大個数を計算"""
+        inner_dims = box.inner_dimensions
+        
+        # 6つの向きをテスト
+        orientations = [
+            (product.width, product.depth, product.height),
+            (product.depth, product.width, product.height),
+            (product.width, product.height, product.depth),
+            (product.depth, product.height, product.width),
+            (product.height, product.width, product.depth),
+            (product.height, product.depth, product.width)
+        ]
+        
+        max_count = 0
+        for w, d, h in orientations:
+            x_count = int(inner_dims[0] // w)
+            y_count = int(inner_dims[1] // d)
+            z_count = int(inner_dims[2] // h)
+            count = x_count * y_count * z_count
+            max_count = max(max_count, count)
+        
+        return max_count
     
     def render_input_section(self):
         """入力セクション表示"""
@@ -220,8 +337,8 @@ class CloudApp:
                     <p>{}</p>
                 </div>
                 """.format(
-                    best_shipping.rate,
-                    best_shipping.carrier
+                    best_shipping.shipping_rate.rate,
+                    best_shipping.shipping_rate.carrier
                 ), unsafe_allow_html=True)
         
         # 詳細結果
@@ -275,10 +392,10 @@ class CloudApp:
         shipping_data = []
         for option in shipping_options[:5]:  # 上位5つ
             shipping_data.append({
-                '配送業者': option.carrier,
-                '送料': f"{option.rate:.0f}円",
-                '配送日数': option.delivery_days,
-                '箱サイズ': option.box_size
+                '配送業者': option.shipping_rate.carrier,
+                '送料': f"{option.shipping_rate.rate:.0f}円",
+                '配送日数': option.shipping_rate.delivery_days,
+                '箱サイズ': option.shipping_rate.box_size
             })
         
         df = pd.DataFrame(shipping_data)
@@ -328,7 +445,7 @@ class CloudApp:
                         marker=dict(
                             size=10,
                             color=f'rgb({50 + i*50}, {100 + i*30}, {150 + i*20})',
-                            symbol='cube'
+                            symbol='square'
                         ),
                         name=f'{item.product.size}',
                         text=f'Size: {item.product.size}<br>Position: ({item.x:.1f}, {item.y:.1f}, {item.z:.1f})'
@@ -360,15 +477,22 @@ class CloudApp:
             # サイドバー表示
             self.render_sidebar()
             
-            # 入力セクション
-            quantities = self.render_input_section()
+            # メインコンテンツをタブで分割
+            tab1, tab2 = st.tabs(["🚀 最適化計算", "📦 箱ラインナップ"])
             
-            # 計算実行ボタン
-            if st.button("🚀 計算実行", type="primary", use_container_width=True):
-                results = self.calculate_packing(quantities)
-                if results:
-                    packing_results, shipping_options = results
-                    self.render_results(packing_results, shipping_options)
+            with tab1:
+                # 入力セクション
+                quantities = self.render_input_section()
+                
+                # 計算実行ボタン
+                if st.button("🚀 計算実行", type="primary", use_container_width=True):
+                    results = self.calculate_packing(quantities)
+                    if results:
+                        packing_results, shipping_options = results
+                        self.render_results(packing_results, shipping_options)
+            
+            with tab2:
+                self.render_detailed_box_lineup()
             
             # フッター
             st.markdown("---")

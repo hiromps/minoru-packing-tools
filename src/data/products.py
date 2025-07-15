@@ -30,11 +30,11 @@ class ProductMaster:
     
     def __init__(self):
         self.products = {
-            'S': Product('S', 15.0, 10.0, 8.0, 0.5),
-            'Sロング': Product('Sロング', 25.0, 10.0, 8.0, 0.7),
-            'L': Product('L', 20.0, 15.0, 12.0, 1.2),
-            'Lロング': Product('Lロング', 30.0, 15.0, 12.0, 1.5),
-            'LL': Product('LL', 25.0, 20.0, 15.0, 2.0)
+            'S': Product('S', 6.5, 6.5, 6.5, 0.073),
+            'Sロング': Product('Sロング', 6.5, 6.5, 9.7, 0.099),
+            'L': Product('L', 9.7, 9.7, 9.7, 0.169),
+            'Lロング': Product('Lロング', 9.7, 9.7, 16.2, 0.246),
+            'LL': Product('LL', 13.0, 13.0, 13.0, 0.308)
         }
     
     def get_product(self, size: str) -> Optional[Product]:
