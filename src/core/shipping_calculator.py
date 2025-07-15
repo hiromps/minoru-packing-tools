@@ -1,6 +1,6 @@
 from typing import Dict, List, Optional
 from dataclasses import dataclass
-from src.data.rates import RateMaster, ShippingRate
+from src.data.rates import RatesMaster, ShippingRate
 from src.data.boxes import TransportBox
 from src.core.packing_optimizer import PackingResult
 
@@ -20,7 +20,7 @@ class ShippingCalculator:
     """送料計算エンジン"""
     
     def __init__(self):
-        self.rate_master = RateMaster()
+        self.rate_master = RatesMaster()
     
     def calculate_shipping_options(self, packing_results: List[PackingResult]) -> List[ShippingOption]:
         """パッキング結果から配送オプションを計算"""
@@ -28,7 +28,7 @@ class ShippingCalculator:
         
         for result in packing_results:
             # 各運送業者の料金を取得
-            rates = self.rate_master.get_all_rates_for_box(result.box.number)
+            rates = self.rate_master.get_rates_for_box(result.box.number)
             
             for rate in rates:
                 option = ShippingOption(
@@ -68,8 +68,12 @@ class ShippingCalculator:
         """指定箱での運送業者別料金比較"""
         comparison = {}
         
-        for carrier in self.rate_master.get_carriers():
-            rate = self.rate_master.get_rate(carrier, box_number)
+        all_rates = self.rate_master.get_all_rates()
+        carriers = list(set(rate.carrier for rate in all_rates))
+        
+        for carrier in carriers:
+            rates_for_carrier = self.rate_master.get_rates_by_carrier(carrier)
+            rate = next((r for r in rates_for_carrier if r.box_size == box_number), None)
             if rate:
                 comparison[carrier] = rate
         

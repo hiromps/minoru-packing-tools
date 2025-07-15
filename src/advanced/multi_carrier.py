@@ -3,7 +3,7 @@ from typing import Dict, List, Optional, Tuple
 import streamlit as st
 import pandas as pd
 import datetime
-from src.data.rates import RateMaster, ShippingRate
+from src.data.rates import RatesMaster, ShippingRate
 from src.core.packing_optimizer import PackingResult
 
 
@@ -34,7 +34,7 @@ class MultiCarrierManager:
     """複数運送業者管理システム"""
     
     def __init__(self):
-        self.rate_master = RateMaster()
+        self.rate_master = RatesMaster()
         self.services = self._initialize_services()
         self.special_rates = self._initialize_special_rates()
     
@@ -135,7 +135,8 @@ class MultiCarrierManager:
                 # 各運送業者のサービスをチェック
                 for carrier in self.services:
                     try:
-                        rate = self.rate_master.get_rate(carrier, result.box.number)
+                        rates_for_carrier = self.rate_master.get_rates_by_carrier(carrier)
+                        rate = next((r for r in rates_for_carrier if r.box_size == result.box.number), None)
                         if not rate:
                             # レートが見つからない場合、デフォルト値を使用
                             rate = self._create_default_rate(carrier, result.box.number)
