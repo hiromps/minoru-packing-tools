@@ -45,6 +45,10 @@ class ProductMaster:
         """全製品情報を取得"""
         return self.products.copy()
     
+    def get_all_sizes(self) -> List[str]:
+        """全製品サイズ名を取得"""
+        return list(self.products.keys())
+    
     def get_product_list(self) -> List[Product]:
         """製品リストを取得"""
         return list(self.products.values())
