@@ -115,14 +115,14 @@ class ProductionApp:
         }
         
         .main-title {
-            font-size: 3rem;
+            font-size: 2rem;
             font-weight: 700;
             margin-bottom: 0.5rem;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
         }
         
         .main-subtitle {
-            font-size: 1.2rem;
+            font-size: 1rem;
             opacity: 0.9;
             margin-bottom: 0;
         }
@@ -423,12 +423,65 @@ class ProductionApp:
         # 入力内容の確認表示
         self.input_handler.display_product_summary(quantities)
         
-        # 計算実行 - モダンスピナー
-        st.markdown("""
-        <div class="modern-card" style="text-align: center; background: linear-gradient(45deg, #74b9ff, #0984e3); color: white;">
-            <h4>🔍 最適な配送方法を計算中...</h4>
-        </div>
-        """, unsafe_allow_html=True)
+        # 計算実行 - シンプルなローディング表示
+        loading_placeholder = st.empty()
+        with loading_placeholder.container():
+            st.markdown("""
+            <div style="
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                padding: 3rem 2rem;
+                border-radius: 20px;
+                text-align: center;
+                box-shadow: 0 20px 60px rgba(102, 126, 234, 0.3);
+                margin: 2rem auto;
+                max-width: 500px;
+                animation: pulse 2s infinite;
+            ">
+                <div style="
+                    width: 60px;
+                    height: 60px;
+                    border: 4px solid rgba(255, 255, 255, 0.3);
+                    border-top: 4px solid white;
+                    border-radius: 50%;
+                    margin: 0 auto 2rem auto;
+                    animation: spin 1s linear infinite;
+                "></div>
+                
+                <h2 style="margin-bottom: 1rem; font-size: 1.8rem;">🔍 計算中...</h2>
+                
+                <div style="
+                    background: rgba(255, 255, 255, 0.15);
+                    padding: 1.5rem;
+                    border-radius: 12px;
+                    margin: 1.5rem 0;
+                ">
+                    <div style="margin-bottom: 0.8rem; font-size: 1rem;">📦 輸送箱の最適化</div>
+                    <div style="margin-bottom: 0.8rem; font-size: 1rem;">💰 送料の比較計算</div>
+                    <div style="font-size: 1rem;">📊 効率性の分析</div>
+                </div>
+                
+                <p style="
+                    margin: 1rem 0 0 0;
+                    opacity: 0.9;
+                    font-size: 1rem;
+                ">
+                    しばらくお待ちください...
+                </p>
+            </div>
+            
+            <style>
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+            
+            @keyframes pulse {
+                0%, 100% { transform: scale(1); }
+                50% { transform: scale(1.02); }
+            }
+            </style>
+            """, unsafe_allow_html=True)
         
         with st.spinner(""):
             packing_results = self.packing_engine.calculate_packing(quantities)
@@ -453,10 +506,16 @@ class ProductionApp:
                     f"Box: {best_result.box.number if best_result else 'None'}"
                 )
                 
+                # ローディング表示をクリア
+                loading_placeholder.empty()
+                
                 # タブで結果を整理
                 self.render_results_tabs(packing_results, shipping_options, enhanced_options)
                 
             else:
+                # ローディング表示をクリア
+                loading_placeholder.empty()
+                
                 st.markdown("""
                 <div class="modern-card" style="background: linear-gradient(45deg, #ff7675, #fd79a8); color: white; text-align: center;">
                     <h4>❌ 適切な輸送箱が見つかりませんでした</h4>
@@ -481,7 +540,6 @@ class ProductionApp:
         ])
         
         with tab1:
-            st.header("🎯 基本最適化結果")
             self.output_renderer.render_results(packing_results, shipping_options)
             
             recommended = self.packing_engine.get_packing_recommendation(packing_results)
@@ -492,22 +550,39 @@ class ProductionApp:
             self.render_3d_visualization(packing_results)
         
         with tab3:
-            st.header("🚚 詳細配送オプション比較")
             if enhanced_options:
                 self.multi_carrier.render_enhanced_options(enhanced_options)
             else:
-                st.warning("⚠️ 詳細配送オプションの生成に失敗しました。")
-                st.info("💡 **代替手段**: 基本結果タブの送料情報をご確認ください。")
+                st.markdown("""
+                <div class="modern-card" style="background: linear-gradient(45deg, #ffeaa7, #fab1a0); color: #2d3436; text-align: center;">
+                    <h4>⚠️ 詳細配送オプションの生成に失敗しました</h4>
+                    <p>💡 基本結果タブの送料情報をご確認ください</p>
+                </div>
+                """, unsafe_allow_html=True)
                 
                 # 基本送料情報を表示
                 if shipping_options:
-                    st.subheader("📦 基本送料情報")
+                    st.markdown("""
+                    <div class="modern-card">
+                        <h4 style="color: #4f46e5; margin-bottom: 1rem;">📦 基本送料情報</h4>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
                     for i, option in enumerate(shipping_options[:3]):
-                        st.markdown(f"**オプション {i+1}:** {option.rate}円 ({option.carrier})")
+                        st.markdown(f"""
+                        <div class="modern-card" style="background: linear-gradient(45deg, #a8edea, #fed6e3);">
+                            <h5 style="color: #2d3436;">オプション {i+1}</h5>
+                            <p style="color: #2d3436; margin: 0;"><strong>{option.shipping_rate.rate}円</strong> ({option.shipping_rate.carrier})</p>
+                        </div>
+                        """, unsafe_allow_html=True)
                 
                 # デバッグ情報（本番環境では非表示）
                 if not settings.is_production:
-                    st.markdown("**🔧 デバッグ情報:**")
+                    st.markdown("""
+                    <div class="modern-card" style="background: #f8f9fa; border-left: 4px solid #4f46e5;">
+                        <h4 style="color: #4f46e5;">🔧 デバッグ情報</h4>
+                    </div>
+                    """, unsafe_allow_html=True)
                     st.write(f"- Packing results: {len(packing_results)}")
                     st.write(f"- Shipping options: {len(shipping_options)}")
                     st.write(f"- Enhanced options: {len(enhanced_options) if enhanced_options else 0}")
@@ -615,9 +690,6 @@ class ProductionApp:
         
         with tab2:
             self.render_detailed_box_lineup()
-        
-        # フッター
-        self.render_footer()
     
     def render_detailed_box_lineup(self):
         """詳細な箱ラインナップページ"""
@@ -636,12 +708,6 @@ class ProductionApp:
         boxes = box_master.get_all_boxes()
         
         # 概要テーブル
-        st.markdown("""
-        <div class="modern-card">
-            <h3 style="color: #4f46e5; margin-bottom: 1rem;">📋 箱サイズ一覧表</h3>
-        </div>
-        """, unsafe_allow_html=True)
-        
         table_data = []
         for box_name, box in boxes.items():
             inner_dims = box.inner_dimensions
@@ -656,145 +722,19 @@ class ProductionApp:
         import pandas as pd
         df = pd.DataFrame(table_data)
         
-        # スタイル付きデータフレーム
-        st.markdown('<div class="modern-card">', unsafe_allow_html=True)
+        # 一つのカードに見出しとテーブルをまとめて表示
+        st.markdown("""
+        <div class="modern-card">
+            <h3 style="color: #4f46e5; margin-bottom: 1rem;">📋 箱サイズ一覧表</h3>
+        """, unsafe_allow_html=True)
+        
         st.dataframe(
             df, 
             use_container_width=True,
             hide_index=True
         )
+        
         st.markdown('</div>', unsafe_allow_html=True)
-        
-        # 詳細情報
-        st.markdown("""
-        <div class="modern-card">
-            <h3 style="color: #4f46e5; margin-bottom: 1rem;">📐 詳細仕様</h3>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        cols = st.columns(len(boxes))
-        
-        for i, (box_name, box) in enumerate(boxes.items()):
-            with cols[i]:
-                st.markdown(f"""
-                <div class="modern-card" style="margin-bottom: 1rem;">
-                    <h3 style="color: #4f46e5; text-align: center; margin-bottom: 1rem;">{box_name}</h3>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                # 基本情報カード - より美しいスタイル
-                st.markdown(f"""
-                <div style="
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                    color: white;
-                    padding: 1.5rem;
-                    border-radius: 15px;
-                    margin-bottom: 1rem;
-                    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
-                    transition: transform 0.3s ease;
-                ">
-                    <h4 style="margin-bottom: 1rem; text-align: center;">📏 寸法</h4>
-                    <div style="background: rgba(255,255,255,0.1); padding: 0.8rem; border-radius: 8px; margin-bottom: 0.5rem;">
-                        <strong>外寸:</strong> {box.width} × {box.depth} × {box.height} cm
-                    </div>
-                    <div style="background: rgba(255,255,255,0.1); padding: 0.8rem; border-radius: 8px; margin-bottom: 0.5rem;">
-                        <strong>内寸:</strong> {box.inner_dimensions[0]:.0f} × {box.inner_dimensions[1]:.0f} × {box.inner_dimensions[2]:.0f} cm
-                    </div>
-                    <div style="background: rgba(255,255,255,0.1); padding: 0.8rem; border-radius: 8px; margin-bottom: 0.5rem;">
-                        <strong>体積:</strong> {box.volume:,.0f} cm³
-                    </div>
-                    <div style="background: rgba(255,255,255,0.1); padding: 0.8rem; border-radius: 8px;">
-                        <strong>最大重量:</strong> {box.max_weight} kg
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                # 容量目安 - モダンスタイル
-                st.markdown("""
-                <div class="modern-card" style="background: linear-gradient(45deg, #84fab0, #8fd3f4);">
-                    <h4 style="color: white; text-align: center; margin-bottom: 1rem;">📦 容量目安</h4>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                capacity_info = []
-                for product_name in ['S', 'Sロング', 'L', 'Lロング', 'LL']:
-                    product = product_master.get_product(product_name)
-                    if product:
-                        # 最適配置での個数計算
-                        max_fit = self._calculate_max_fit_production(box, product)
-                        capacity_info.append((product_name, max_fit))
-                
-                # 容量情報を美しく表示
-                capacity_html = ""
-                for product_name, max_fit in capacity_info:
-                    capacity_html += f"""
-                    <div style="
-                        background: white;
-                        margin: 0.3rem 0;
-                        padding: 0.8rem;
-                        border-radius: 8px;
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: center;
-                        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-                    ">
-                        <span style="font-weight: 600; color: #4f46e5;">{product_name}サイズ</span>
-                        <span style="
-                            background: linear-gradient(45deg, #4f46e5, #7c3aed);
-                            color: white;
-                            padding: 0.3rem 0.8rem;
-                            border-radius: 15px;
-                            font-weight: bold;
-                        ">{max_fit}個</span>
-                    </div>
-                    """
-                
-                st.markdown(f"""
-                <div class="modern-card">
-                    {capacity_html}
-                </div>
-                """, unsafe_allow_html=True)
-    
-    def _calculate_max_fit_production(self, box, product):
-        """箱に入る最大個数を計算（Production版）"""
-        inner_dims = box.inner_dimensions
-        
-        # 6つの向きをテスト
-        orientations = [
-            (product.width, product.depth, product.height),
-            (product.depth, product.width, product.height),
-            (product.width, product.height, product.depth),
-            (product.depth, product.height, product.width),
-            (product.height, product.width, product.depth),
-            (product.height, product.depth, product.width)
-        ]
-        
-        max_count = 0
-        for w, d, h in orientations:
-            x_count = int(inner_dims[0] // w)
-            y_count = int(inner_dims[1] // d)
-            z_count = int(inner_dims[2] // h)
-            count = x_count * y_count * z_count
-            max_count = max(max_count, count)
-        
-        return max_count
-    
-    def render_footer(self):
-        """フッター表示"""
-        st.markdown("""
-        <div style="
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            text-align: center;
-            padding: 2rem;
-            border-radius: 15px;
-            margin-top: 3rem;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-        ">
-            <h3 style="margin-bottom: 0.5rem;">📦 ミノルキューブ最適配送システム</h3>
-            <p style="opacity: 0.9; margin-bottom: 0;">送料最適化と梱包効率向上のためのツール</p>
-        </div>
-        """, unsafe_allow_html=True)
 
 
 def main():
