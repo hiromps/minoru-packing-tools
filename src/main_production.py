@@ -11,7 +11,10 @@ import time
 from typing import Dict, Any
 
 # プロジェクトルートをPythonパスに追加
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Define current_dir for compatibility (in case of deployment issues)
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(current_dir)
+sys.path.insert(0, project_root)
 
 # 設定とユーティリティのインポート
 from src.config.settings import settings, load_env_config
